@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Scenario 02: DNS Tunneling & DGA Detection &mdash; SOC Splunk Guide</title>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+<style>
+@media print{.sidebar,.site-header,.layer-tabs,.sc-nav,.progress-bar{display:none!important}
+.main-content{margin:0;padding:1rem}.layer-panel{display:block!important}.phase-steps{display:block!important}}
+</style>
+</head><body>
+<header class="site-header">
+  <button class="btn-icon mobile-menu-btn" id="mobile-menu">&#9776;</button>
+  <div class="header-logo"><div class="logo-icon">&#128737;</div> SOC <span>Splunk</span> Guide</div>
+  <div class="header-spacer"></div>
+  <div class="header-actions">
+    <a class="btn-icon" href="../index.html" data-tip="Dashboard">&#8862;</a>
+    <button class="btn-icon" id="theme-toggle" data-tip="Toggle theme">&#9680;</button>
+    <button class="btn-icon" id="print-btn" data-tip="Print">&#9113;</button>
+  </div>
+</header>
+<div class="progress-bar"><div class="progress-fill"></div></div>
+
+<nav class="sidebar" aria-label="Site navigation">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Navigation</div>
+    <a class="nav-link" href="../index.html">&#x229E; Dashboard</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128308; Critical</div>
+    <a class="nav-link" href="01-brute-force.html"><span class="nav-num">01</span> Brute Force &amp; Spray <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="02-dns-analysis.html"><span class="nav-num">02</span> DNS Tunneling / DGA <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="03-lateral-movement.html"><span class="nav-num">03</span> Lateral Movement <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="04-data-exfiltration.html"><span class="nav-num">04</span> Data Exfiltration <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="05-alert-triage.html"><span class="nav-num">05</span> Alert Triage <span class="nav-sev sev-c">CRIT</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#127849; High</div>
+    <a class="nav-link" href="06-ueba.html"><span class="nav-num">06</span> UEBA / Insider <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="07-powershell-lolbins.html"><span class="nav-num">07</span> PowerShell / LOLBins <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="08-ioc-hunting.html"><span class="nav-num">08</span> IOC Hunting <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="09-persistence.html"><span class="nav-num">09</span> Persistence <span class="nav-sev sev-h">HIGH</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128993; Standard</div>
+    <a class="nav-link" href="10-incident-reporting.html"><span class="nav-num">10</span> Incident Reporting <span class="nav-sev sev-m">MED</span></a>
+  </div>
+</nav>
+<main class="main-content">
+  <div class="scenario-header fade-in">
+    <div class="sc-eyebrow">
+      <span class="sc-num-badge">SCENARIO 02 / 10</span>
+      <span class="sc-sev-badge sev-c">CRITICAL</span>
+    </div>
+    <div class="sc-title">DNS Tunneling & DGA Detection</div>
+    <div class="sc-subtitle">DNS Logs · DNSSense/DNSEye · NXDOMAIN Analysis</div>
+    <div class="sc-tags"><span class="sc-tag">DNS Logs</span><span class="sc-tag">DNSSense/DNSEye</span><span class="sc-tag t-red">DNS Tunneling</span><span class="sc-tag t-red">DGA</span><span class="sc-tag t-orange">T1071.004</span></div>
+  </div>
+  <div class="layer-tabs fade-in fade-in-1" role="tablist">
+    <button class="layer-tab" data-layer="u">&#129504; <span>UNDERSTAND</span></button>
+    <button class="layer-tab" data-layer="d">&#128269; <span>DETECT</span></button>
+    <button class="layer-tab" data-layer="a">&#128203; <span>ACT</span></button>
+  </div>
+  <div id="panel-u" class="layer-panel fade-in fade-in-2">
+<div class="content-card"><h3>&#127754; What is DNS Tunneling?</h3>
+<p>Attackers encode data inside DNS queries to create a covert channel. Since DNS (port 53) is almost never blocked by firewalls, it provides an ideal exfiltration path. Tools: <strong>iodine</strong>, <strong>dnscat2</strong>.</p>
+<p>Key indicator: unusually long subdomains (&gt;50 chars), high query rate to one domain, rare record types (TXT, NULL, ANY).</p></div>
+<div class="content-card"><h3>&#128200; What is DGA?</h3>
+<p>Malware generates pseudo-random domain names to contact its C2 server. The operator pre-registers upcoming names. If one is blocked, the next one is tried.</p>
+<p>Key indicator: high <strong>NXDOMAIN rate</strong> from one host (&gt;30/hr), random-looking domains (e.g., <code>xk9p2mqa.ru</code>), short TTL. Families: Conficker, Emotet, Dridex.</p></div>
+<div class="alert alert-warn"><span class="alert-icon">&#9888;</span><div><strong>Log Artifacts:</strong> Long subdomain (&gt;50 chars) &middot; High NXDOMAIN rate &middot; Regular interval queries (beaconing) &middot; TXT/NULL record types</div></div></div>
+  <div id="panel-d" class="layer-panel fade-in fade-in-2"><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; DNS Tunneling Detection</span>
+    <span class="spl-meta">DNS Logs &middot; earliest=-1h</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">sourcetype</span>=<span class="st">"dns"</span> <span class="kw">earliest</span>=-<span class="nm">1h</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">subdomain</span> = <span class="fn">replace</span>(<span class="fd">query</span>,<span class="st">"\.[^.]+\.[^.]+$"</span>,<span class="st">""</span>)
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">sub_len</span> = <span class="fn">len</span>(<span class="fd">subdomain</span>)
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">sub_len</span> &gt; <span class="nm">50</span>
+<span class="op">|</span> <span class="fn">stats</span> <span class="kw">count</span> <span class="kw">as</span> <span class="fd">tunnel_queries</span>, <span class="fn">avg</span>(<span class="fd">sub_len</span>) <span class="kw">as</span> <span class="fd">avg_len</span> <span class="kw">by</span> <span class="fd">src_ip</span>, <span class="fd">query_type</span>
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">tunnel_queries</span> &gt; <span class="nm">20</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">sev</span> = <span class="kw">case</span>(<span class="fd">avg_len</span>&gt;<span class="nm">100</span>,<span class="st">"CRITICAL"</span>,<span class="fd">avg_len</span>&gt;<span class="nm">70</span>,<span class="st">"HIGH"</span>,<span class="nm">1</span>=<span class="nm">1</span>,<span class="st">"MEDIUM"</span>)
+<span class="op">|</span> <span class="fn">sort</span> -<span class="fd">tunnel_queries</span></div>
+</div>
+<table class="explain-table"><tr><th>Component</th><th>Explanation</th></tr>
+<tr><td>eval sub_len</td><td>Calculate subdomain length — DNS tunneling inflates this with encoded data</td></tr>
+<tr><td>where sub_len &gt; 50</td><td>Subdomains over 50 chars are extremely rare in legitimate DNS traffic</td></tr>
+<tr><td>case() sev</td><td>Auto-classify: &gt;100 avg chars = almost certainly active tunneling</td></tr></table>
+<div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; DGA Detection (NXDOMAIN Rate)</span>
+    <span class="spl-meta">DNS Logs &middot; -1h</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">sourcetype</span>=<span class="st">"dns"</span> <span class="fd">reply_code</span>=<span class="st">"NXDOMAIN"</span> <span class="kw">earliest</span>=-<span class="nm">1h</span>
+<span class="op">|</span> <span class="fn">stats</span> <span class="kw">count</span> <span class="kw">as</span> <span class="fd">nx_count</span>, <span class="fn">dc</span>(<span class="fd">query</span>) <span class="kw">as</span> <span class="fd">uniq_domains</span> <span class="kw">by</span> <span class="fd">src_ip</span>
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">nx_count</span> &gt; <span class="nm">30</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">dga_score</span> = <span class="fn">round</span>(<span class="fd">uniq_domains</span>/<span class="fd">nx_count</span>*<span class="nm">100</span>,<span class="nm">2</span>)
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">verdict</span> = <span class="kw">if</span>(<span class="fd">dga_score</span>&gt;<span class="nm">80</span>,<span class="st">"HIGH - DGA"</span>,<span class="st">"MEDIUM"</span>)
+<span class="op">|</span> <span class="fn">sort</span> -<span class="fd">nx_count</span></div>
+</div></div>
+  <div id="panel-a" class="layer-panel fade-in fade-in-2"><div class="runbook-phase"><div class="phase-header ph-1">&#128269; Phase 1 — Validation <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Check subdomain length — over 50 chars is suspicious, over 100 is critical</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Check NXDOMAIN rate — over 30/hr from one host = DGA suspect</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Look for regular query intervals (beaconing pattern)</div></div></div></div><div class="dt-box"><div class="dt-title">&#127795; DNS Decision Tree</div><div class="dt-q">Is the domain flagged malicious in VirusTotal / Threat Intel?</div><div class="dt-y">&#10003; Yes → True Positive — Block domain at DNS + Escalate</div><div class="dt-n">&#10007; No → Continue</div><div class="dt-q">Is subdomain length >50 with Base64/hex pattern?</div><div class="dt-y">&#10003; Yes → High confidence Tunneling — Block + Host forensics</div><div class="dt-n">&#10007; No → Analyze NXDOMAIN rate and query frequency</div></div><div class="runbook-phase"><div class="phase-header ph-4">&#128680; Phase 2 — Response (TP Confirmed) <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Block malicious domain in DNS Sinkhole or Firewall</div></div><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Isolate originating host from network</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Take memory dump for forensic analysis</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Identify all other internal hosts querying the same domain</div></div></div></div><div class="mitre-box"><div class="mitre-title">&#8862; MITRE ATT&CK MAPPING</div><div class="mitre-grid"><div class="mitre-item"><div class="mitre-id">T1071.004</div><div class="mitre-name">C2: DNS Protocol</div></div><div class="mitre-item"><div class="mitre-id">T1568.002</div><div class="mitre-name">DGA — Dynamic Resolution</div></div><div class="mitre-item"><div class="mitre-id">T1048</div><div class="mitre-name">Exfiltration Over Alt Protocol</div></div><div class="mitre-item"><div class="mitre-id">TA0011</div><div class="mitre-name">Tactic: Command & Control</div></div><div class="mitre-item"><div class="mitre-id">TA0010</div><div class="mitre-name">Tactic: Exfiltration</div></div></div></div></div>
+  <div class="sc-nav"><a class="sc-nav-btn prev" href="01-brute-force.html"><span>&larr;</span><div><div class="sc-nav-label">Previous</div><div class="sc-nav-title">01. Brute Force & Spray</div></div></a><a class="sc-nav-btn next" href="03-lateral-movement.html"><div><div class="sc-nav-label">Next</div><div class="sc-nav-title">03. Lateral Movement</div></div><span>&rarr;</span></a></div>
+</main>
+<script src="../assets/js/main.js"></script>
+</body></html>
