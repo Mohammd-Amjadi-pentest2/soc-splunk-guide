@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Scenario 04: Data Exfiltration Detection &mdash; SOC Splunk Guide</title>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+<style>
+@media print{.sidebar,.site-header,.layer-tabs,.sc-nav,.progress-bar{display:none!important}
+.main-content{margin:0;padding:1rem}.layer-panel{display:block!important}.phase-steps{display:block!important}}
+</style>
+</head><body>
+<header class="site-header">
+  <button class="btn-icon mobile-menu-btn" id="mobile-menu">&#9776;</button>
+  <div class="header-logo"><div class="logo-icon">&#128737;</div> SOC <span>Splunk</span> Guide</div>
+  <div class="header-spacer"></div>
+  <div class="header-actions">
+    <a class="btn-icon" href="../index.html" data-tip="Dashboard">&#8862;</a>
+    <button class="btn-icon" id="theme-toggle" data-tip="Toggle theme">&#9680;</button>
+    <button class="btn-icon" id="print-btn" data-tip="Print">&#9113;</button>
+  </div>
+</header>
+<div class="progress-bar"><div class="progress-fill"></div></div>
+
+<nav class="sidebar" aria-label="Site navigation">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Navigation</div>
+    <a class="nav-link" href="../index.html">&#x229E; Dashboard</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128308; Critical</div>
+    <a class="nav-link" href="01-brute-force.html"><span class="nav-num">01</span> Brute Force &amp; Spray <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="02-dns-analysis.html"><span class="nav-num">02</span> DNS Tunneling / DGA <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="03-lateral-movement.html"><span class="nav-num">03</span> Lateral Movement <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="04-data-exfiltration.html"><span class="nav-num">04</span> Data Exfiltration <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="05-alert-triage.html"><span class="nav-num">05</span> Alert Triage <span class="nav-sev sev-c">CRIT</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#127849; High</div>
+    <a class="nav-link" href="06-ueba.html"><span class="nav-num">06</span> UEBA / Insider <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="07-powershell-lolbins.html"><span class="nav-num">07</span> PowerShell / LOLBins <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="08-ioc-hunting.html"><span class="nav-num">08</span> IOC Hunting <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="09-persistence.html"><span class="nav-num">09</span> Persistence <span class="nav-sev sev-h">HIGH</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128993; Standard</div>
+    <a class="nav-link" href="10-incident-reporting.html"><span class="nav-num">10</span> Incident Reporting <span class="nav-sev sev-m">MED</span></a>
+  </div>
+</nav>
+<main class="main-content">
+  <div class="scenario-header fade-in">
+    <div class="sc-eyebrow">
+      <span class="sc-num-badge">SCENARIO 04 / 10</span>
+      <span class="sc-sev-badge sev-c">CRITICAL</span>
+    </div>
+    <div class="sc-title">Data Exfiltration Detection</div>
+    <div class="sc-subtitle">Volume Anomaly · Protocol Abuse · Cloud Upload</div>
+    <div class="sc-tags"><span class="sc-tag">Firewall Logs</span><span class="sc-tag">Proxy Logs</span><span class="sc-tag t-red">Large Upload</span><span class="sc-tag t-orange">T1048</span><span class="sc-tag t-orange">T1567</span></div>
+  </div>
+  <div class="layer-tabs fade-in fade-in-1" role="tablist">
+    <button class="layer-tab" data-layer="u">&#129504; <span>UNDERSTAND</span></button>
+    <button class="layer-tab" data-layer="d">&#128269; <span>DETECT</span></button>
+    <button class="layer-tab" data-layer="a">&#128203; <span>ACT</span></button>
+  </div>
+  <div id="panel-u" class="layer-panel fade-in fade-in-2">
+<div class="content-card"><h3>&#128190; What is Data Exfiltration?</h3>
+<p>The final stage of many attacks — the attacker transfers stolen data outside the network. Methods: large HTTPS uploads to cloud storage, FTP to attacker server, DNS tunneling, email attachments.</p>
+<p>Detection requires a <strong>baseline</strong>: know what "normal" outbound traffic looks like for each host.</p></div>
+<div class="content-card"><h3>&#128308; Key Detection Signals</h3>
+<p>1. <strong>Outbound volume spike</strong> — significantly above rolling average<br/>
+2. <strong>Upload to unknown or unapproved services</strong><br/>
+3. <strong>After-hours activity</strong> from workstation accounts<br/>
+4. <strong>Archive creation followed by upload</strong> (zip/rar then POST)<br/>
+5. <strong>Large HTTP POST body</strong> to external IP</p></div>
+<div class="alert alert-warn"><span class="alert-icon">&#9888;</span><div><strong>Context matters:</strong> 500MB upload to SharePoint = normal. 500MB to mega.nz at 11PM = critical alert.</div></div></div>
+  <div id="panel-d" class="layer-panel fade-in fade-in-2"><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; Outbound Volume Anomaly</span>
+    <span class="spl-meta">Firewall / Palo Alto &middot; -1h</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">sourcetype</span>=<span class="st">"firewall"</span> OR <span class="kw">sourcetype</span>=<span class="st">"paloalto"</span>
+<span class="fd">action</span>=<span class="st">"allowed"</span> <span class="fd">direction</span>=<span class="st">"outbound"</span> <span class="kw">earliest</span>=-<span class="nm">1h</span>
+<span class="op">|</span> <span class="fn">stats</span> <span class="fn">sum</span>(<span class="fd">bytes_out</span>) <span class="kw">as</span> <span class="fd">total_bytes</span>, <span class="fn">dc</span>(<span class="fd">dest_ip</span>) <span class="kw">as</span> <span class="fd">uniq_dest</span> <span class="kw">by</span> <span class="fd">src_ip</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">mb_out</span> = <span class="fn">round</span>(<span class="fd">total_bytes</span>/<span class="nm">1048576</span>,<span class="nm">2</span>)
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">mb_out</span> &gt; <span class="nm">100</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">risk</span> = <span class="kw">case</span>(<span class="fd">mb_out</span>&gt;<span class="nm">1000</span>,<span class="st">"CRITICAL &gt;1GB"</span>,<span class="fd">mb_out</span>&gt;<span class="nm">500</span>,<span class="st">"HIGH &gt;500MB"</span>,<span class="nm">1</span>=<span class="nm">1</span>,<span class="st">"MEDIUM"</span>)
+<span class="op">|</span> <span class="fn">sort</span> -<span class="fd">mb_out</span></div>
+</div><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; Upload to Unapproved Cloud Services</span>
+    <span class="spl-meta">Proxy Logs &middot; -24h</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">sourcetype</span>=<span class="st">"proxy"</span>
+(<span class="fd">method</span>=<span class="st">"POST"</span> OR <span class="fd">method</span>=<span class="st">"PUT"</span>) <span class="kw">earliest</span>=-<span class="nm">24h</span>
+<span class="op">|</span> <span class="fn">where</span> NOT <span class="fn">match</span>(<span class="fd">dest_host</span>,<span class="st">"(?i)(microsoft|office365|google|zoom|teams)"</span>)
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">upload_mb</span> = <span class="fn">round</span>(<span class="fd">cs_bytes</span>/<span class="nm">1048576</span>,<span class="nm">2</span>)
+<span class="op">|</span> <span class="fn">stats</span> <span class="fn">sum</span>(<span class="fd">upload_mb</span>) <span class="kw">as</span> <span class="fd">total_mb</span>, <span class="fn">values</span>(<span class="fd">dest_host</span>) <span class="kw">as</span> <span class="fd">destinations</span> <span class="kw">by</span> <span class="fd">src_ip</span>, <span class="fd">user</span>
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">total_mb</span> &gt; <span class="nm">50</span> <span class="op">|</span> <span class="fn">sort</span> -<span class="fd">total_mb</span></div>
+</div></div>
+  <div id="panel-a" class="layer-panel fade-in fade-in-2"><div class="runbook-phase"><div class="phase-header ph-1">&#128269; Phase 1 — Scope Assessment <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Calculate exact data volume transferred — above 1GB is critical</div></div><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Identify destination: dedicated IP or cloud service? What country?</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Was transfer after business hours?</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">What file types were transferred (proxy logs)?</div></div></div></div><div class="dt-box"><div class="dt-title">&#127795; Exfiltration Decision Tree</div><div class="dt-q">Is destination in the organization's approved service list?</div><div class="dt-y">&#10003; Yes → Possible FP — verify with account owner</div><div class="dt-n">&#10007; No → Continue</div><div class="dt-q">Is volume >100MB to an unknown external IP?</div><div class="dt-y">&#10003; Yes → TRUE POSITIVE — Block + Escalate + Notify Legal/HR</div><div class="dt-n">&#10007; No → Investigate with Proxy/DLP logs</div></div><div class="runbook-phase"><div class="phase-header ph-4">&#128680; Immediate Response <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Block host network traffic — keep host alive for forensics</div></div><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Block destination IP/domain at Firewall</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Notify HR and Management — potential Insider Threat</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Take forensic image before any changes</div></div></div></div><div class="mitre-box"><div class="mitre-title">&#8862; MITRE ATT&CK MAPPING</div><div class="mitre-grid"><div class="mitre-item"><div class="mitre-id">T1048</div><div class="mitre-name">Exfil Over Alt Protocol</div></div><div class="mitre-item"><div class="mitre-id">T1041</div><div class="mitre-name">Exfil Over C2 Channel</div></div><div class="mitre-item"><div class="mitre-id">T1567</div><div class="mitre-name">Exfil to Web Service</div></div><div class="mitre-item"><div class="mitre-id">T1074</div><div class="mitre-name">Data Staged</div></div><div class="mitre-item"><div class="mitre-id">TA0010</div><div class="mitre-name">Tactic: Exfiltration</div></div></div></div></div>
+  <div class="sc-nav"><a class="sc-nav-btn prev" href="03-lateral-movement.html"><span>&larr;</span><div><div class="sc-nav-label">Previous</div><div class="sc-nav-title">03. Lateral Movement</div></div></a><a class="sc-nav-btn next" href="05-alert-triage.html"><div><div class="sc-nav-label">Next</div><div class="sc-nav-title">05. Alert Triage in Splunk ES</div></div><span>&rarr;</span></a></div>
+</main>
+<script src="../assets/js/main.js"></script>
+</body></html>
