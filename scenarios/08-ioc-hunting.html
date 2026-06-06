@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Scenario 08: IOC Hunting in Splunk &mdash; SOC Splunk Guide</title>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+<style>
+@media print{.sidebar,.site-header,.layer-tabs,.sc-nav,.progress-bar{display:none!important}
+.main-content{margin:0;padding:1rem}.layer-panel{display:block!important}.phase-steps{display:block!important}}
+</style>
+</head><body>
+<header class="site-header">
+  <button class="btn-icon mobile-menu-btn" id="mobile-menu">&#9776;</button>
+  <div class="header-logo"><div class="logo-icon">&#128737;</div> SOC <span>Splunk</span> Guide</div>
+  <div class="header-spacer"></div>
+  <div class="header-actions">
+    <a class="btn-icon" href="../index.html" data-tip="Dashboard">&#8862;</a>
+    <button class="btn-icon" id="theme-toggle" data-tip="Toggle theme">&#9680;</button>
+    <button class="btn-icon" id="print-btn" data-tip="Print">&#9113;</button>
+  </div>
+</header>
+<div class="progress-bar"><div class="progress-fill"></div></div>
+
+<nav class="sidebar" aria-label="Site navigation">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Navigation</div>
+    <a class="nav-link" href="../index.html">&#x229E; Dashboard</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128308; Critical</div>
+    <a class="nav-link" href="01-brute-force.html"><span class="nav-num">01</span> Brute Force &amp; Spray <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="02-dns-analysis.html"><span class="nav-num">02</span> DNS Tunneling / DGA <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="03-lateral-movement.html"><span class="nav-num">03</span> Lateral Movement <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="04-data-exfiltration.html"><span class="nav-num">04</span> Data Exfiltration <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="05-alert-triage.html"><span class="nav-num">05</span> Alert Triage <span class="nav-sev sev-c">CRIT</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#127849; High</div>
+    <a class="nav-link" href="06-ueba.html"><span class="nav-num">06</span> UEBA / Insider <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="07-powershell-lolbins.html"><span class="nav-num">07</span> PowerShell / LOLBins <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="08-ioc-hunting.html"><span class="nav-num">08</span> IOC Hunting <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="09-persistence.html"><span class="nav-num">09</span> Persistence <span class="nav-sev sev-h">HIGH</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128993; Standard</div>
+    <a class="nav-link" href="10-incident-reporting.html"><span class="nav-num">10</span> Incident Reporting <span class="nav-sev sev-m">MED</span></a>
+  </div>
+</nav>
+<main class="main-content">
+  <div class="scenario-header fade-in">
+    <div class="sc-eyebrow">
+      <span class="sc-num-badge">SCENARIO 08 / 10</span>
+      <span class="sc-sev-badge sev-h">HIGH</span>
+    </div>
+    <div class="sc-title">IOC Hunting in Splunk</div>
+    <div class="sc-subtitle">Threat Intel · IP/Hash/Domain Search · 90-Day Lookback</div>
+    <div class="sc-tags"><span class="sc-tag">All Log Sources</span><span class="sc-tag">Threat Intel</span><span class="sc-tag t-orange">90-Day Lookback</span><span class="sc-tag t-orange">T1566</span></div>
+  </div>
+  <div class="layer-tabs fade-in fade-in-1" role="tablist">
+    <button class="layer-tab" data-layer="u">&#129504; <span>UNDERSTAND</span></button>
+    <button class="layer-tab" data-layer="d">&#128269; <span>DETECT</span></button>
+    <button class="layer-tab" data-layer="a">&#128203; <span>ACT</span></button>
+  </div>
+  <div id="panel-u" class="layer-panel fade-in fade-in-2">
+<div class="content-card"><h3>&#128270; What is IOC Hunting?</h3>
+<p>After receiving new Threat Intelligence (ISAC, VirusTotal, CISA advisory), the analyst <strong>proactively searches historical logs</strong> to check if the IOCs appear in their environment.</p>
+<p>Always search <strong>at least 90 days back</strong> — the attacker may have been present for weeks before detection.</p></div>
+<div class="content-card"><h3>&#127793; Pyramid of Pain</h3>
+<p><strong>Hash</strong> (easiest to change) &rarr; <strong>IP</strong> &rarr; <strong>Domain</strong> &rarr; <strong>Network/Host Artifacts</strong> &rarr; <strong>Tools</strong> &rarr; <strong>TTPs</strong> (hardest to change)</p>
+<p>Focus hunting on TTPs and tools — they're more durable. Hashes change in minutes.</p></div>
+<div class="alert alert-info"><span class="alert-icon">&#128161;</span><div>IOC types: IP Address &middot; Domain/FQDN &middot; File Hash (SHA256) &middot; URL Pattern &middot; User-Agent String &middot; Registry Key</div></div></div>
+  <div id="panel-d" class="layer-panel fade-in fade-in-2"><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; Malicious IP Hunt (Multi-Source, 90 Days)</span>
+    <span class="spl-meta">All Sources &middot; earliest=-90d</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">earliest</span>=-<span class="nm">90d</span>
+(<span class="fd">src_ip</span>=<span class="st">"185.220.101.45"</span> OR <span class="fd">dest_ip</span>=<span class="st">"185.220.101.45"</span>
+ OR <span class="fd">src_ip</span>=<span class="st">"194.165.16.33"</span>  OR <span class="fd">dest_ip</span>=<span class="st">"194.165.16.33"</span>)
+<span class="op">|</span> <span class="fn">stats</span> <span class="kw">count</span> <span class="kw">as</span> <span class="fd">hits</span>, <span class="fn">min</span>(<span class="fd">_time</span>) <span class="kw">as</span> <span class="fd">first_seen</span>,
+        <span class="fn">max</span>(<span class="fd">_time</span>) <span class="kw">as</span> <span class="fd">last_seen</span>,
+        <span class="fn">values</span>(<span class="fd">src_ip</span>) <span class="kw">as</span> <span class="fd">internal_hosts</span>,
+        <span class="fn">values</span>(<span class="fd">sourcetype</span>) <span class="kw">as</span> <span class="fd">log_sources</span>
+        <span class="kw">by</span> <span class="fd">dest_ip</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">first_seen</span> = <span class="fn">strftime</span>(<span class="fd">first_seen</span>,<span class="st">"%Y-%m-%d %H:%M"</span>)
+<span class="op">|</span> <span class="fn">sort</span> -<span class="fd">hits</span></div>
+</div><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; File Hash Hunt (Sysmon EventID 1+7)</span>
+    <span class="spl-meta">90-Day Lookback</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">sourcetype</span>=XmlWinEventLog:Microsoft-Windows-Sysmon/Operational
+(<span class="fd">EventCode</span>=<span class="nm">1</span> OR <span class="fd">EventCode</span>=<span class="nm">7</span>) <span class="kw">earliest</span>=-<span class="nm">90d</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">sha256</span> = <span class="fn">lower</span>(<span class="fn">replace</span>(<span class="fd">Hashes</span>,<span class="st">".*SHA256=([^,]+).*"</span>,<span class="st">"\1"</span>))
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">sha256</span> IN (<span class="st">"a3f5e2b8c1d4e9f7a2b5c8d1e4f7a0b3"</span>,
+                    <span class="st">"b7d2e5f8a1c4b7e0f3a6b9c2d5e8f1a4"</span>)
+<span class="op">|</span> <span class="fn">stats</span> <span class="kw">count</span>, <span class="fn">values</span>(<span class="fd">Computer</span>) <span class="kw">as</span> <span class="fd">hosts</span>, <span class="fn">values</span>(<span class="fd">Image</span>) <span class="kw">as</span> <span class="fd">paths</span> <span class="kw">by</span> <span class="fd">sha256</span></div>
+</div></div>
+  <div id="panel-a" class="layer-panel fade-in fade-in-2"><div class="runbook-phase"><div class="phase-header ph-1">&#128229; Phase 1 — IOC Preparation <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Validate IOC source — CISA, VirusTotal with multiple detections, trusted ISAC</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Categorize by type: IP, Domain, Hash, URL</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Set lookback window — minimum 90 days</div></div></div></div><div class="dt-box"><div class="dt-title">&#127795; IOC Hit Response</div><div class="dt-q">Did the IOC hunt return any hits?</div><div class="dt-n">&#10007; No → Document search scope and time window. Add IOCs to blocklists.</div><div class="dt-y">&#10003; Yes → Continue</div><div class="dt-q">How many internal hosts communicated with the malicious IOC?</div><div class="dt-y">&#10003; 1 host → Investigate that host. Likely contained.</div><div class="dt-n">&#10007; >1 host → Assume breach. Activate full Incident Response Plan.</div></div><div class="runbook-phase"><div class="phase-header ph-4">&#128680; Active Hunt Response <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">On any hit: immediately expand investigation to all activity from that host</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Check surrounding time window ±2 hours for correlated events</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Identify all other internal hosts in the same subnet</div></div></div></div><div class="mitre-box"><div class="mitre-title">&#8862; MITRE ATT&CK MAPPING</div><div class="mitre-grid"><div class="mitre-item"><div class="mitre-id">T1566</div><div class="mitre-name">Phishing (IOC source)</div></div><div class="mitre-item"><div class="mitre-id">T1071.001</div><div class="mitre-name">C2: Web Protocols</div></div><div class="mitre-item"><div class="mitre-id">T1105</div><div class="mitre-name">Ingress Tool Transfer</div></div><div class="mitre-item"><div class="mitre-id">TA0043</div><div class="mitre-name">Reconnaissance</div></div></div></div></div>
+  <div class="sc-nav"><a class="sc-nav-btn prev" href="07-powershell-lolbins.html"><span>&larr;</span><div><div class="sc-nav-label">Previous</div><div class="sc-nav-title">07. PowerShell & LOLBins</div></div></a><a class="sc-nav-btn next" href="09-persistence.html"><div><div class="sc-nav-label">Next</div><div class="sc-nav-title">09. Persistence Mechanisms</div></div><span>&rarr;</span></a></div>
+</main>
+<script src="../assets/js/main.js"></script>
+</body></html>
