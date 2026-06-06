@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Scenario 05: Alert Triage in Splunk ES &mdash; SOC Splunk Guide</title>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+<style>
+@media print{.sidebar,.site-header,.layer-tabs,.sc-nav,.progress-bar{display:none!important}
+.main-content{margin:0;padding:1rem}.layer-panel{display:block!important}.phase-steps{display:block!important}}
+</style>
+</head><body>
+<header class="site-header">
+  <button class="btn-icon mobile-menu-btn" id="mobile-menu">&#9776;</button>
+  <div class="header-logo"><div class="logo-icon">&#128737;</div> SOC <span>Splunk</span> Guide</div>
+  <div class="header-spacer"></div>
+  <div class="header-actions">
+    <a class="btn-icon" href="../index.html" data-tip="Dashboard">&#8862;</a>
+    <button class="btn-icon" id="theme-toggle" data-tip="Toggle theme">&#9680;</button>
+    <button class="btn-icon" id="print-btn" data-tip="Print">&#9113;</button>
+  </div>
+</header>
+<div class="progress-bar"><div class="progress-fill"></div></div>
+
+<nav class="sidebar" aria-label="Site navigation">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Navigation</div>
+    <a class="nav-link" href="../index.html">&#x229E; Dashboard</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128308; Critical</div>
+    <a class="nav-link" href="01-brute-force.html"><span class="nav-num">01</span> Brute Force &amp; Spray <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="02-dns-analysis.html"><span class="nav-num">02</span> DNS Tunneling / DGA <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="03-lateral-movement.html"><span class="nav-num">03</span> Lateral Movement <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="04-data-exfiltration.html"><span class="nav-num">04</span> Data Exfiltration <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="05-alert-triage.html"><span class="nav-num">05</span> Alert Triage <span class="nav-sev sev-c">CRIT</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#127849; High</div>
+    <a class="nav-link" href="06-ueba.html"><span class="nav-num">06</span> UEBA / Insider <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="07-powershell-lolbins.html"><span class="nav-num">07</span> PowerShell / LOLBins <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="08-ioc-hunting.html"><span class="nav-num">08</span> IOC Hunting <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="09-persistence.html"><span class="nav-num">09</span> Persistence <span class="nav-sev sev-h">HIGH</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128993; Standard</div>
+    <a class="nav-link" href="10-incident-reporting.html"><span class="nav-num">10</span> Incident Reporting <span class="nav-sev sev-m">MED</span></a>
+  </div>
+</nav>
+<main class="main-content">
+  <div class="scenario-header fade-in">
+    <div class="sc-eyebrow">
+      <span class="sc-num-badge">SCENARIO 05 / 10</span>
+      <span class="sc-sev-badge sev-c">CRITICAL</span>
+    </div>
+    <div class="sc-title">Alert Triage in Splunk ES</div>
+    <div class="sc-subtitle">Notable Events · Risk Score · TP/FP Decision Framework</div>
+    <div class="sc-tags"><span class="sc-tag">Splunk ES</span><span class="sc-tag">index=notable</span><span class="sc-tag t-orange">Risk Score</span><span class="sc-tag">TP/FP Decision</span></div>
+  </div>
+  <div class="layer-tabs fade-in fade-in-1" role="tablist">
+    <button class="layer-tab" data-layer="u">&#129504; <span>UNDERSTAND</span></button>
+    <button class="layer-tab" data-layer="d">&#128269; <span>DETECT</span></button>
+    <button class="layer-tab" data-layer="a">&#128203; <span>ACT</span></button>
+  </div>
+  <div id="panel-u" class="layer-panel fade-in fade-in-2">
+<div class="content-card"><h3>&#9889; What is Alert Triage?</h3>
+<p>SOC analysts receive thousands of alerts daily. Triage = <strong>prioritize + decide</strong>. Outcomes:</p>
+<p>&bull; <strong>True Positive</strong> — real attack → act<br/>
+&bull; <strong>False Positive</strong> — benign → tune the rule<br/>
+&bull; <strong>False Negative</strong> — missed attack → worst case<br/>
+Goal: reduce <strong>MTTD</strong> (Mean Time to Detect) and prevent analyst fatigue.</p></div>
+<div class="content-card"><h3>&#128202; Splunk ES Notable Events</h3>
+<p>Correlation Searches fire Notable Events stored in <code>index=notable</code>. Each event has:<br/>
+<strong>Risk Score</strong> (0–100) · <strong>Urgency</strong> (info/low/medium/high/critical) · <strong>Status</strong> · <strong>Owner</strong></p></div>
+<div class="alert alert-warn"><span class="alert-icon">&#9888;</span><div><strong>Critical Rule:</strong> Use Response Notes — NOT Audit Notes — to document analysis. Response Notes cannot be deleted and create a permanent audit trail.</div></div></div>
+  <div id="panel-d" class="layer-panel fade-in fade-in-2"><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; Notable Events Prioritization</span>
+    <span class="spl-meta">index=notable &middot; -24h</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=notable <span class="kw">earliest</span>=-<span class="nm">24h</span>
+<span class="op">|</span> <span class="fn">stats</span> <span class="kw">count</span> <span class="kw">as</span> <span class="fd">alert_count</span>, <span class="fn">dc</span>(<span class="fd">src_user</span>) <span class="kw">as</span> <span class="fd">unique_users</span>,
+        <span class="fn">values</span>(<span class="fd">rule_name</span>) <span class="kw">as</span> <span class="fd">rules</span> <span class="kw">by</span> <span class="fd">urgency</span>, <span class="fd">status</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">priority</span> = <span class="kw">case</span>(<span class="fd">urgency</span>=<span class="st">"critical"</span>,<span class="nm">1</span>,<span class="fd">urgency</span>=<span class="st">"high"</span>,<span class="nm">2</span>,
+        <span class="fd">urgency</span>=<span class="st">"medium"</span>,<span class="nm">3</span>,<span class="nm">1</span>=<span class="nm">1</span>,<span class="nm">4</span>)
+<span class="op">|</span> <span class="fn">sort</span> <span class="fd">priority</span></div>
+</div><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; High-Volume Rules (FP Tuning Candidates)</span>
+    <span class="spl-meta">index=notable &middot; -7d</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=notable <span class="kw">earliest</span>=-<span class="nm">7d</span>
+<span class="op">|</span> <span class="fn">stats</span> <span class="kw">count</span> <span class="kw">as</span> <span class="fd">fire_count</span>, <span class="fn">dc</span>(<span class="fd">src_ip</span>) <span class="kw">as</span> <span class="fd">uniq_src</span> <span class="kw">by</span> <span class="fd">rule_name</span>
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">fire_count</span> &gt; <span class="nm">100</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">tuning</span> = <span class="kw">if</span>(<span class="fd">fire_count</span>&gt;<span class="nm">500</span>,<span class="st">"YES - HIGH PRIORITY"</span>,<span class="st">"REVIEW"</span>)
+<span class="op">|</span> <span class="fn">sort</span> -<span class="fd">fire_count</span></div>
+</div></div>
+  <div id="panel-a" class="layer-panel fade-in fade-in-2"><div class="runbook-phase"><div class="phase-header ph-1">&#9889; Phase 1 — Alert Receipt <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Open Analyst Queue — address Critical and High first</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Assign Notable Event to yourself — prevent duplicate work</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Set Status to 'In Progress'</div></div></div></div><div class="dt-box"><div class="dt-title">&#127795; TP / FP / Tuning Decision</div><div class="dt-q">Does the activity match user/system context? (pentest, maintenance window)</div><div class="dt-y">&#10003; Yes → FP — document and suppress rule for this asset</div><div class="dt-n">&#10007; No → Continue</div><div class="dt-q">Has rule fired >50 times in 7 days with zero confirmed TPs?</div><div class="dt-y">&#10003; Yes → FP needing tuning — open Rule Optimization ticket</div><div class="dt-n">&#10007; No → Continue</div><div class="dt-q">Is alert confirmed by correlated evidence from multiple sources?</div><div class="dt-y">&#10003; Yes → TRUE POSITIVE — Begin Incident Response</div><div class="dt-n">&#10007; No → UNDETERMINED — Escalate to L2 with documentation</div></div><div class="runbook-phase"><div class="phase-header ph-5">&#128221; Phase 2 — Documentation <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Write Response Notes — permanent, cannot be deleted, full audit trail</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Document: what investigated, what found, decision and rationale</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Set status to Resolved or Escalated with written justification</div></div></div></div><div class="mitre-box"><div class="mitre-title">&#8862; MITRE ATT&CK MAPPING</div><div class="mitre-grid"><div class="mitre-item"><div class="mitre-id">TA0001</div><div class="mitre-name">Initial Access</div></div><div class="mitre-item"><div class="mitre-id">TA0002</div><div class="mitre-name">Execution</div></div><div class="mitre-item"><div class="mitre-id">TA0006</div><div class="mitre-name">Credential Access</div></div><div class="mitre-item"><div class="mitre-id">TA0008</div><div class="mitre-name">Lateral Movement</div></div></div></div></div>
+  <div class="sc-nav"><a class="sc-nav-btn prev" href="04-data-exfiltration.html"><span>&larr;</span><div><div class="sc-nav-label">Previous</div><div class="sc-nav-title">04. Data Exfiltration</div></div></a><a class="sc-nav-btn next" href="06-ueba.html"><div><div class="sc-nav-label">Next</div><div class="sc-nav-title">06. User Behavior Analytics</div></div><span>&rarr;</span></a></div>
+</main>
+<script src="../assets/js/main.js"></script>
+</body></html>
