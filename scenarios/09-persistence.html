@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Scenario 09: Persistence Mechanisms Detection &mdash; SOC Splunk Guide</title>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+<style>
+@media print{.sidebar,.site-header,.layer-tabs,.sc-nav,.progress-bar{display:none!important}
+.main-content{margin:0;padding:1rem}.layer-panel{display:block!important}.phase-steps{display:block!important}}
+</style>
+</head><body>
+<header class="site-header">
+  <button class="btn-icon mobile-menu-btn" id="mobile-menu">&#9776;</button>
+  <div class="header-logo"><div class="logo-icon">&#128737;</div> SOC <span>Splunk</span> Guide</div>
+  <div class="header-spacer"></div>
+  <div class="header-actions">
+    <a class="btn-icon" href="../index.html" data-tip="Dashboard">&#8862;</a>
+    <button class="btn-icon" id="theme-toggle" data-tip="Toggle theme">&#9680;</button>
+    <button class="btn-icon" id="print-btn" data-tip="Print">&#9113;</button>
+  </div>
+</header>
+<div class="progress-bar"><div class="progress-fill"></div></div>
+
+<nav class="sidebar" aria-label="Site navigation">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Navigation</div>
+    <a class="nav-link" href="../index.html">&#x229E; Dashboard</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128308; Critical</div>
+    <a class="nav-link" href="01-brute-force.html"><span class="nav-num">01</span> Brute Force &amp; Spray <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="02-dns-analysis.html"><span class="nav-num">02</span> DNS Tunneling / DGA <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="03-lateral-movement.html"><span class="nav-num">03</span> Lateral Movement <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="04-data-exfiltration.html"><span class="nav-num">04</span> Data Exfiltration <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="05-alert-triage.html"><span class="nav-num">05</span> Alert Triage <span class="nav-sev sev-c">CRIT</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#127849; High</div>
+    <a class="nav-link" href="06-ueba.html"><span class="nav-num">06</span> UEBA / Insider <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="07-powershell-lolbins.html"><span class="nav-num">07</span> PowerShell / LOLBins <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="08-ioc-hunting.html"><span class="nav-num">08</span> IOC Hunting <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="09-persistence.html"><span class="nav-num">09</span> Persistence <span class="nav-sev sev-h">HIGH</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128993; Standard</div>
+    <a class="nav-link" href="10-incident-reporting.html"><span class="nav-num">10</span> Incident Reporting <span class="nav-sev sev-m">MED</span></a>
+  </div>
+</nav>
+<main class="main-content">
+  <div class="scenario-header fade-in">
+    <div class="sc-eyebrow">
+      <span class="sc-num-badge">SCENARIO 09 / 10</span>
+      <span class="sc-sev-badge sev-h">HIGH</span>
+    </div>
+    <div class="sc-title">Persistence Mechanisms Detection</div>
+    <div class="sc-subtitle">Registry Run Keys · Scheduled Tasks · New Services</div>
+    <div class="sc-tags"><span class="sc-tag">Sysmon EventID 13</span><span class="sc-tag t-red">Registry Run Keys</span><span class="sc-tag t-red">Scheduled Task 4698</span><span class="sc-tag t-orange">T1547</span></div>
+  </div>
+  <div class="layer-tabs fade-in fade-in-1" role="tablist">
+    <button class="layer-tab" data-layer="u">&#129504; <span>UNDERSTAND</span></button>
+    <button class="layer-tab" data-layer="d">&#128269; <span>DETECT</span></button>
+    <button class="layer-tab" data-layer="a">&#128203; <span>ACT</span></button>
+  </div>
+  <div id="panel-u" class="layer-panel fade-in fade-in-2">
+<div class="content-card"><h3>&#128274; What is Persistence?</h3>
+<p>After gaining access, attackers establish persistence to ensure access survives <strong>system reboots</strong> and <strong>user logoffs</strong>. Without persistence, the malware dies on reboot. Attackers often set multiple persistence methods as backup channels.</p></div>
+<div class="content-card"><h3>&#128273; Common Persistence Methods</h3>
+<p><strong>Registry Run Keys:</strong> <code>HKCU/HKLM\Software\Microsoft\Windows\CurrentVersion\Run</code> — executes on every login<br/>
+<strong>Scheduled Tasks (EventID 4698):</strong> Time- or event-triggered execution<br/>
+<strong>New Services (EventID 7045):</strong> Runs as SYSTEM — highest privilege<br/>
+<strong>WMI Subscriptions:</strong> Persistent event-triggered execution in memory</p></div>
+<div class="alert alert-danger"><span class="alert-icon">&#128308;</span><div><strong>Red Flag:</strong> Legitimate software installs to Program Files. A Run Key pointing to <code>%TEMP%</code> or <code>AppData\Roaming</code> = almost certainly malicious.</div></div></div>
+  <div id="panel-d" class="layer-panel fade-in fade-in-2"><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; Registry Run Key Modification (Sysmon EventID 13)</span>
+    <span class="spl-meta">Registry persistence detection</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">sourcetype</span>=XmlWinEventLog:Microsoft-Windows-Sysmon/Operational
+<span class="fd">EventCode</span>=<span class="nm">13</span> <span class="kw">earliest</span>=-<span class="nm">24h</span>
+<span class="op">|</span> <span class="fn">where</span> <span class="fn">match</span>(<span class="fd">TargetObject</span>,
+    <span class="st">"(?i)(CurrentVersion\\\\Run|Winlogon\\\\Userinit)"</span>)
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">suspicious</span> = <span class="kw">if</span>(
+    <span class="fn">match</span>(<span class="fd">Details</span>,<span class="st">"(?i)(temp|appdata|powershell|cmd\.exe|wscript)"</span>),
+    <span class="st">"YES"</span>,<span class="st">"NO"</span>)
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">suspicious</span>=<span class="st">"YES"</span>
+<span class="op">|</span> <span class="fn">table</span> <span class="fd">Computer</span>, <span class="fd">User</span>, <span class="fd">TargetObject</span>, <span class="fd">Details</span>, <span class="fd">Image</span></div>
+</div><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; New Scheduled Task (EventID 4698)</span>
+    <span class="spl-meta">Windows Security &middot; -24h</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">sourcetype</span>=WinEventLog:Security
+<span class="fd">EventCode</span>=<span class="nm">4698</span> <span class="kw">earliest</span>=-<span class="nm">24h</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">suspicious</span> = <span class="kw">if</span>(
+    <span class="fn">match</span>(<span class="fd">TaskContent</span>,<span class="st">"(?i)(powershell|cmd|wscript|temp|appdata|http)"</span>),
+    <span class="st">"SUSPICIOUS"</span>,<span class="st">"NORMAL"</span>)
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">suspicious</span>=<span class="st">"SUSPICIOUS"</span>
+<span class="op">|</span> <span class="fn">table</span> <span class="fd">ComputerName</span>, <span class="fd">Account_Name</span>, <span class="fd">TaskName</span>, <span class="fd">TaskContent</span></div>
+</div></div>
+  <div id="panel-a" class="layer-panel fade-in fade-in-2"><div class="runbook-phase"><div class="phase-header ph-1">&#128269; Phase 1 — Identify & Analyze <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Identify the executable path set in the persistence mechanism</div></div><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Extract file hash and check in VirusTotal immediately</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Determine when persistence was established — correlate with other events</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Check if same pattern exists on other hosts</div></div></div></div><div class="dt-box"><div class="dt-title">&#127795; Persistence Threat Assessment</div><div class="dt-q">Is the file hash detected as malicious in VirusTotal?</div><div class="dt-y">&#10003; Yes → TRUE POSITIVE — Quarantine + Isolate + Full forensics</div><div class="dt-n">&#10007; No → Continue</div><div class="dt-q">Is the executable in a Temp/AppData directory (not Program Files)?</div><div class="dt-y">&#10003; Yes → HIGH SUSPICION — Investigate parent process that created it</div><div class="dt-n">&#10007; No → Check digital signature and file origin carefully</div></div><div class="runbook-phase"><div class="phase-header ph-4">&#128680; Response Actions <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Remove malicious Registry Key or disable Scheduled Task</div></div><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Quarantine malicious file — do NOT delete, preserve for forensics</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Check currently running processes — is the malware currently active?</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Take memory dump before any system changes</div></div></div></div><div class="mitre-box"><div class="mitre-title">&#8862; MITRE ATT&CK MAPPING</div><div class="mitre-grid"><div class="mitre-item"><div class="mitre-id">T1547.001</div><div class="mitre-name">Registry Run Keys</div></div><div class="mitre-item"><div class="mitre-id">T1053.005</div><div class="mitre-name">Scheduled Task</div></div><div class="mitre-item"><div class="mitre-id">T1543.003</div><div class="mitre-name">Create/Modify Service</div></div><div class="mitre-item"><div class="mitre-id">T1546.003</div><div class="mitre-name">WMI Event Subscription</div></div><div class="mitre-item"><div class="mitre-id">TA0003</div><div class="mitre-name">Tactic: Persistence</div></div></div></div></div>
+  <div class="sc-nav"><a class="sc-nav-btn prev" href="08-ioc-hunting.html"><span>&larr;</span><div><div class="sc-nav-label">Previous</div><div class="sc-nav-title">08. IOC Hunting</div></div></a><a class="sc-nav-btn next" href="10-incident-reporting.html"><div><div class="sc-nav-label">Next</div><div class="sc-nav-title">10. Incident Documentation</div></div><span>&rarr;</span></a></div>
+</main>
+<script src="../assets/js/main.js"></script>
+</body></html>
