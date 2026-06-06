@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>SOC Splunk Reference Guide</title>
+<meta name="description" content="Comprehensive SOC analyst reference guide for threat detection in Splunk. 10 core scenarios with SPL queries, runbooks, and MITRE ATT&CK mapping."/>
+<link rel="stylesheet" href="assets/css/style.css"/>
+<style>
+/* Index-specific styles */
+.hero-terminal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 2.5rem;
+  position: relative;
+}
+.hero-terminal-bar {
+  background: var(--bg-elevated);
+  padding: .6rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  border-bottom: 1px solid var(--border-dim);
+}
+.tb { width: 10px; height: 10px; border-radius: 50%; }
+.tb-r { background: #ff5f57; }
+.tb-y { background: #febc2e; }
+.tb-g { background: #28c840; }
+.terminal-title {
+  margin-left: .5rem;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  color: var(--text-dim);
+}
+.hero-terminal-body {
+  padding: 1.5rem 2rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: center;
+}
+.hero-left h1 {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: .75rem;
+}
+.hero-left h1 .accent { color: var(--accent); }
+.hero-left p {
+  color: var(--text-secondary);
+  font-size: .95rem;
+  line-height: 1.85;
+  margin-bottom: 1.25rem;
+}
+.hero-btns { display: flex; gap: .75rem; flex-wrap: wrap; }
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  background: var(--accent);
+  color: #070c18;
+  font-family: var(--font-display);
+  font-size: .88rem;
+  font-weight: 700;
+  padding: .6rem 1.2rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: all .2s;
+  text-decoration: none;
+}
+.btn-primary:hover {
+  background: #00ffda;
+  box-shadow: var(--accent-glow);
+  transform: translateY(-1px);
+  text-decoration: none;
+  color: #070c18;
+}
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  background: var(--bg-raised);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: .88rem;
+  font-weight: 600;
+  padding: .6rem 1.2rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-dim);
+  cursor: pointer;
+  transition: all .2s;
+  text-decoration: none;
+}
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+}
+.hero-right {
+  background: #070f1e;
+  border-radius: var(--radius-md);
+  padding: 1.1rem;
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  line-height: 1.85;
+  color: #636e82;
+  border: 1px solid rgba(0,229,195,.08);
+}
+.hero-right .accent { color: var(--accent); }
+.hero-right .green { color: #2ed573; }
+.hero-right .yellow { color: #ffd32a; }
+.hero-right .red { color: #ff4757; }
+.hero-right .comment { color: #4a5568; }
+@media(max-width:780px) {
+  .hero-terminal-body { grid-template-columns: 1fr; }
+  .hero-right { display: none; }
+  .hero-left h1 { font-size: 1.8rem; }
+}
+
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .3rem .75rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--border-dim);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  transition: all .15s;
+}
+.filter-btn:hover, .filter-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.filter-spacer { flex: 1; }
+.search-inline {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: .3rem .7rem;
+  transition: border-color .2s;
+}
+.search-inline:focus-within { border-color: var(--accent); }
+.search-inline input {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: .82rem;
+  width: 180px;
+}
+.search-inline input::placeholder { color: var(--text-dim); }
+
+/* footer */
+.site-footer {
+  margin-top: 3rem;
+  padding: 2rem 0 0;
+  border-top: 1px solid var(--border-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.footer-left {
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  color: var(--text-dim);
+  line-height: 1.8;
+}
+.footer-left span { color: var(--accent); }
+.footer-links { display: flex; gap: 1rem; }
+.footer-links a {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color .15s;
+}
+.footer-links a:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header class="site-header">
+  <button class="btn-icon mobile-menu-btn" id="mobile-menu" aria-label="Menu">☰</button>
+  <div class="header-logo">
+    <div class="logo-icon">🛡</div>
+    SOC <span>Splunk</span> Guide
+  </div>
+  <div class="header-spacer"></div>
+  <div class="header-search">
+    <span class="search-icon">⌕</span>
+    <input type="text" id="search-input" placeholder="Search scenarios… (Ctrl+K)" aria-label="Search"/>
+  </div>
+  <div class="header-actions">
+    <button class="btn-icon" id="theme-toggle" data-tip="Toggle theme" aria-label="Toggle theme">◑</button>
+    <a class="btn-icon" href="https://github.com/Mohammd-Amjadi-pentest2/detection-as-code-pipeline" target="_blank"
+       data-tip="View on GitHub" aria-label="GitHub">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+    </a>
+    <button class="btn-icon" id="print-btn" data-tip="Print page" aria-label="Print">⎙</button>
+  </div>
+</header>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+<nav class="sidebar" aria-label="Site navigation">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Navigation</div>
+    <a class="nav-link active" href="index.html">
+      <span>⊞</span> Dashboard
+    </a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">🔴 Critical</div>
+    <a class="nav-link" href="scenarios/01-brute-force.html">
+      <span class="nav-num">01</span> Brute Force &amp; Spray
+      <span class="nav-sev sev-c">CRIT</span>
+    </a>
+    <a class="nav-link" href="scenarios/02-dns-analysis.html">
+      <span class="nav-num">02</span> DNS Tunneling / DGA
+      <span class="nav-sev sev-c">CRIT</span>
+    </a>
+    <a class="nav-link" href="scenarios/03-lateral-movement.html">
+      <span class="nav-num">03</span> Lateral Movement
+      <span class="nav-sev sev-c">CRIT</span>
+    </a>
+    <a class="nav-link" href="scenarios/04-data-exfiltration.html">
+      <span class="nav-num">04</span> Data Exfiltration
+      <span class="nav-sev sev-c">CRIT</span>
+    </a>
+    <a class="nav-link" href="scenarios/05-alert-triage.html">
+      <span class="nav-num">05</span> Alert Triage
+      <span class="nav-sev sev-c">CRIT</span>
+    </a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">🟠 High</div>
+    <a class="nav-link" href="scenarios/06-ueba.html">
+      <span class="nav-num">06</span> UEBA / Insider
+      <span class="nav-sev sev-h">HIGH</span>
+    </a>
+    <a class="nav-link" href="scenarios/07-powershell-lolbins.html">
+      <span class="nav-num">07</span> PowerShell / LOLBins
+      <span class="nav-sev sev-h">HIGH</span>
+    </a>
+    <a class="nav-link" href="scenarios/08-ioc-hunting.html">
+      <span class="nav-num">08</span> IOC Hunting
+      <span class="nav-sev sev-h">HIGH</span>
+    </a>
+    <a class="nav-link" href="scenarios/09-persistence.html">
+      <span class="nav-num">09</span> Persistence
+      <span class="nav-sev sev-h">HIGH</span>
+    </a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">🟡 Standard</div>
+    <a class="nav-link" href="scenarios/10-incident-reporting.html">
+      <span class="nav-num">10</span> Incident Reporting
+      <span class="nav-sev sev-m">MED</span>
+    </a>
+  </div>
+</nav>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<main class="main-content">
+
+  <!-- Hero Terminal Block -->
+  <div class="hero-terminal fade-in">
+    <div class="hero-terminal-bar">
+      <div class="tb tb-r"></div>
+      <div class="tb tb-y"></div>
+      <div class="tb tb-g"></div>
+      <span class="terminal-title">soc-splunk-guide — bash</span>
+    </div>
+    <div class="hero-terminal-body">
+      <div class="hero-left">
+        <h1>SOC <span class="accent">Splunk</span><br/>Reference Guide</h1>
+        <p>
+          A comprehensive threat detection playbook for SOC analysts.
+          Covers 10 core attack scenarios with production-ready SPL queries,
+          operational runbooks, and full MITRE ATT&amp;CK mapping.
+        </p>
+        <div class="hero-btns">
+          <a class="btn-primary" href="scenarios/01-brute-force.html">▶ Start Scenario 01</a>
+          <a class="btn-secondary" href="https://github.com/Mohammd-Amjadi-pentest2/detection-as-code-pipeline" target="_blank">★ Star on GitHub</a>
+        </div>
+      </div>
+      <div class="hero-right" aria-hidden="true">
+<span class="comment">## SOC Splunk Reference Guide</span>
+<span class="comment">## Scenarios: 10 | Queries: 20+ | v1.0</span>
+
+$ <span class="green">splunk</span> search \
+  '<span class="accent">index</span>=* EventCode=<span class="yellow">4625</span>
+   earliest=-1h
+   | stats count <span class="accent">as</span> failed
+     <span class="accent">by</span> Account_Name, src_ip
+   | where failed &gt; <span class="yellow">10</span>
+   | eval risk = <span class="accent">if</span>(failed&gt;<span class="yellow">50</span>,
+       <span class="red">"CRITICAL"</span>, <span class="yellow">"HIGH"</span>)'
+
+<span class="green">✓ 3 results found</span>
+<span class="red">⚠ Account j.smith: 87 failures from 192.168.10.55</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar fade-in fade-in-1">
+    <div class="stat-item">
+      <div class="stat-value">10</div>
+      <div class="stat-label">Scenarios</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">20+</div>
+      <div class="stat-label">SPL Queries</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">10</div>
+      <div class="stat-label">Runbooks</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">v1.0</div>
+      <div class="stat-label">Version</div>
+    </div>
+  </div>
+
+  <!-- Filter + Search -->
+  <div class="filter-bar fade-in fade-in-2">
+    <button class="filter-btn active" onclick="filterCards(this,'all')">All</button>
+    <button class="filter-btn" onclick="filterCards(this,'c')">🔴 Critical</button>
+    <button class="filter-btn" onclick="filterCards(this,'h')">🟠 High</button>
+    <button class="filter-btn" onclick="filterCards(this,'m')">🟡 Medium</button>
+    <div class="filter-spacer"></div>
+    <div class="search-inline">
+      <span style="color:var(--text-dim);font-size:.8rem">⌕</span>
+      <input type="text" id="search-input" placeholder="Search…" aria-label="Search scenarios"/>
+    </div>
+  </div>
+
+  <!-- Scenario cards -->
+  <div class="scenarios-grid fade-in fade-in-3" id="scenarios-grid">
+
+    <a class="scenario-card" href="scenarios/01-brute-force.html" data-sev="c">
+      <div class="card-header">
+        <span class="card-num">01</span>
+        <span class="nav-sev sev-c">CRITICAL</span>
+      </div>
+      <div class="card-title">Authentication & Brute Force Detection</div>
+      <div class="card-desc">Detect brute force and password spraying attacks using Windows EventIDs 4625, 4740, and Linux auth logs.</div>
+      <div class="card-tags">
+        <span class="card-tag">Windows EventID 4625</span>
+        <span class="card-tag">Password Spraying</span>
+        <span class="card-tag">T1110</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers" title="Understand / Detect / Act">
+          <div class="layer-dot ld-u"></div>
+          <div class="layer-dot ld-d"></div>
+          <div class="layer-dot ld-a"></div>
+        </div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="scenario-card" href="scenarios/02-dns-analysis.html" data-sev="c">
+      <div class="card-header">
+        <span class="card-num">02</span>
+        <span class="nav-sev sev-c">CRITICAL</span>
+      </div>
+      <div class="card-title">DNS Tunneling & DGA Detection</div>
+      <div class="card-desc">Identify DNS tunneling via long subdomains and Domain Generation Algorithm via high NXDOMAIN rates.</div>
+      <div class="card-tags">
+        <span class="card-tag">DNS Logs</span>
+        <span class="card-tag">NXDOMAIN</span>
+        <span class="card-tag">T1071.004</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers"><div class="layer-dot ld-u"></div><div class="layer-dot ld-d"></div><div class="layer-dot ld-a"></div></div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="scenario-card" href="scenarios/03-lateral-movement.html" data-sev="c">
+      <div class="card-header">
+        <span class="card-num">03</span>
+        <span class="nav-sev sev-c">CRITICAL</span>
+      </div>
+      <div class="card-title">Lateral Movement Detection</div>
+      <div class="card-desc">Detect SMB, RDP, WMI, and PsExec lateral movement across Windows environments with Sysmon telemetry.</div>
+      <div class="card-tags">
+        <span class="card-tag">RDP Logon_Type=10</span>
+        <span class="card-tag">PsExec 7045</span>
+        <span class="card-tag">T1021</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers"><div class="layer-dot ld-u"></div><div class="layer-dot ld-d"></div><div class="layer-dot ld-a"></div></div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="scenario-card" href="scenarios/04-data-exfiltration.html" data-sev="c">
+      <div class="card-header">
+        <span class="card-num">04</span>
+        <span class="nav-sev sev-c">CRITICAL</span>
+      </div>
+      <div class="card-title">Data Exfiltration Detection</div>
+      <div class="card-desc">Identify large outbound transfers, uploads to unapproved cloud services, and after-hours data movement.</div>
+      <div class="card-tags">
+        <span class="card-tag">Firewall Logs</span>
+        <span class="card-tag">Proxy Logs</span>
+        <span class="card-tag">T1048</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers"><div class="layer-dot ld-u"></div><div class="layer-dot ld-d"></div><div class="layer-dot ld-a"></div></div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="scenario-card" href="scenarios/05-alert-triage.html" data-sev="c">
+      <div class="card-header">
+        <span class="card-num">05</span>
+        <span class="nav-sev sev-c">CRITICAL</span>
+      </div>
+      <div class="card-title">Alert Triage in Splunk ES</div>
+      <div class="card-desc">Prioritize Notable Events, distinguish TP from FP, apply risk scoring, and document using Response Notes.</div>
+      <div class="card-tags">
+        <span class="card-tag">Splunk ES</span>
+        <span class="card-tag">index=notable</span>
+        <span class="card-tag">Risk Score</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers"><div class="layer-dot ld-u"></div><div class="layer-dot ld-d"></div><div class="layer-dot ld-a"></div></div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="scenario-card" href="scenarios/06-ueba.html" data-sev="h">
+      <div class="card-header">
+        <span class="card-num">06</span>
+        <span class="nav-sev sev-h">HIGH</span>
+      </div>
+      <div class="card-title">User Behavior Analytics (UEBA)</div>
+      <div class="card-desc">Detect insider threats and compromised accounts via after-hours logins, impossible travel, and new resource access.</div>
+      <div class="card-tags">
+        <span class="card-tag">Active Directory</span>
+        <span class="card-tag">After-Hours</span>
+        <span class="card-tag">T1078</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers"><div class="layer-dot ld-u"></div><div class="layer-dot ld-d"></div><div class="layer-dot ld-a"></div></div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="scenario-card" href="scenarios/07-powershell-lolbins.html" data-sev="h">
+      <div class="card-header">
+        <span class="card-num">07</span>
+        <span class="nav-sev sev-h">HIGH</span>
+      </div>
+      <div class="card-title">PowerShell & LOLBins Analysis</div>
+      <div class="card-desc">Detect malicious PowerShell via risk scoring, identify LOLBin abuse (certutil, mshta, regsvr32) via Sysmon.</div>
+      <div class="card-tags">
+        <span class="card-tag">Sysmon EventID 1</span>
+        <span class="card-tag">-EncodedCommand</span>
+        <span class="card-tag">T1059.001</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers"><div class="layer-dot ld-u"></div><div class="layer-dot ld-d"></div><div class="layer-dot ld-a"></div></div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="scenario-card" href="scenarios/08-ioc-hunting.html" data-sev="h">
+      <div class="card-header">
+        <span class="card-num">08</span>
+        <span class="nav-sev sev-h">HIGH</span>
+      </div>
+      <div class="card-title">IOC Hunting in Splunk</div>
+      <div class="card-desc">Hunt for malicious IPs, domains, and file hashes across 90 days of logs using Threat Intelligence feeds.</div>
+      <div class="card-tags">
+        <span class="card-tag">Threat Intel</span>
+        <span class="card-tag">SHA256 Hash</span>
+        <span class="card-tag">90-Day Lookback</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers"><div class="layer-dot ld-u"></div><div class="layer-dot ld-d"></div><div class="layer-dot ld-a"></div></div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="scenario-card" href="scenarios/09-persistence.html" data-sev="h">
+      <div class="card-header">
+        <span class="card-num">09</span>
+        <span class="nav-sev sev-h">HIGH</span>
+      </div>
+      <div class="card-title">Persistence Mechanisms Detection</div>
+      <div class="card-desc">Identify malicious Registry Run Keys, Scheduled Tasks, and new Services via Sysmon EventID 13 and 4698.</div>
+      <div class="card-tags">
+        <span class="card-tag">Registry Run Keys</span>
+        <span class="card-tag">Sysmon EventID 13</span>
+        <span class="card-tag">T1547</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers"><div class="layer-dot ld-u"></div><div class="layer-dot ld-d"></div><div class="layer-dot ld-a"></div></div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <a class="scenario-card" href="scenarios/10-incident-reporting.html" data-sev="m">
+      <div class="card-header">
+        <span class="card-num">10</span>
+        <span class="nav-sev sev-m">MEDIUM</span>
+      </div>
+      <div class="card-title">Incident Documentation & Reporting</div>
+      <div class="card-desc">Generate incident timelines, write executive reports, map MITRE ATT&amp;CK kill chains, and run lessons learned.</div>
+      <div class="card-tags">
+        <span class="card-tag">Splunk ES</span>
+        <span class="card-tag">Timeline SPL</span>
+        <span class="card-tag">MITRE Mapping</span>
+      </div>
+      <div class="card-footer">
+        <div class="card-layers"><div class="layer-dot ld-u"></div><div class="layer-dot ld-d"></div><div class="layer-dot ld-a"></div></div>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+  </div><!-- end scenarios-grid -->
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-left">
+      Built for <span>SOC Analysts</span> · Splunk Enterprise Security · v1.0<br/>
+      All SPL uses <code>index=*</code> — replace with your production indexes.
+    </div>
+    <div class="footer-links">
+      <a href="https://attack.mitre.org" target="_blank">MITRE ATT&amp;CK</a>
+      <a href="https://docs.splunk.com" target="_blank">Splunk Docs</a>
+      <a href="https://github.com/Mohammd-Amjadi-pentest2/detection-as-code-pipeline" target="_blank">GitHub</a>
+    </div>
+  </footer>
+
+</main>
+
+<script src="assets/js/main.js"></script>
+<script>
+// Filter cards by severity
+function filterCards(btn, sev) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.scenario-card').forEach(card => {
+    card.classList.toggle('search-hidden', sev !== 'all' && card.dataset.sev !== sev);
+  });
+}
+</script>
+</body>
+</html>
