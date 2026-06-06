@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Scenario 03: Lateral Movement Detection &mdash; SOC Splunk Guide</title>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+<style>
+@media print{.sidebar,.site-header,.layer-tabs,.sc-nav,.progress-bar{display:none!important}
+.main-content{margin:0;padding:1rem}.layer-panel{display:block!important}.phase-steps{display:block!important}}
+</style>
+</head><body>
+<header class="site-header">
+  <button class="btn-icon mobile-menu-btn" id="mobile-menu">&#9776;</button>
+  <div class="header-logo"><div class="logo-icon">&#128737;</div> SOC <span>Splunk</span> Guide</div>
+  <div class="header-spacer"></div>
+  <div class="header-actions">
+    <a class="btn-icon" href="../index.html" data-tip="Dashboard">&#8862;</a>
+    <button class="btn-icon" id="theme-toggle" data-tip="Toggle theme">&#9680;</button>
+    <button class="btn-icon" id="print-btn" data-tip="Print">&#9113;</button>
+  </div>
+</header>
+<div class="progress-bar"><div class="progress-fill"></div></div>
+
+<nav class="sidebar" aria-label="Site navigation">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Navigation</div>
+    <a class="nav-link" href="../index.html">&#x229E; Dashboard</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128308; Critical</div>
+    <a class="nav-link" href="01-brute-force.html"><span class="nav-num">01</span> Brute Force &amp; Spray <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="02-dns-analysis.html"><span class="nav-num">02</span> DNS Tunneling / DGA <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="03-lateral-movement.html"><span class="nav-num">03</span> Lateral Movement <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="04-data-exfiltration.html"><span class="nav-num">04</span> Data Exfiltration <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="05-alert-triage.html"><span class="nav-num">05</span> Alert Triage <span class="nav-sev sev-c">CRIT</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#127849; High</div>
+    <a class="nav-link" href="06-ueba.html"><span class="nav-num">06</span> UEBA / Insider <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="07-powershell-lolbins.html"><span class="nav-num">07</span> PowerShell / LOLBins <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="08-ioc-hunting.html"><span class="nav-num">08</span> IOC Hunting <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="09-persistence.html"><span class="nav-num">09</span> Persistence <span class="nav-sev sev-h">HIGH</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128993; Standard</div>
+    <a class="nav-link" href="10-incident-reporting.html"><span class="nav-num">10</span> Incident Reporting <span class="nav-sev sev-m">MED</span></a>
+  </div>
+</nav>
+<main class="main-content">
+  <div class="scenario-header fade-in">
+    <div class="sc-eyebrow">
+      <span class="sc-num-badge">SCENARIO 03 / 10</span>
+      <span class="sc-sev-badge sev-c">CRITICAL</span>
+    </div>
+    <div class="sc-title">Lateral Movement Detection</div>
+    <div class="sc-subtitle">SMB · RDP · WMI · PsExec — Windows + Sysmon</div>
+    <div class="sc-tags"><span class="sc-tag">Windows Security</span><span class="sc-tag">Sysmon</span><span class="sc-tag t-red">RDP Logon_Type=10</span><span class="sc-tag t-red">PsExec EventID 7045</span><span class="sc-tag t-orange">T1021</span></div>
+  </div>
+  <div class="layer-tabs fade-in fade-in-1" role="tablist">
+    <button class="layer-tab" data-layer="u">&#129504; <span>UNDERSTAND</span></button>
+    <button class="layer-tab" data-layer="d">&#128269; <span>DETECT</span></button>
+    <button class="layer-tab" data-layer="a">&#128203; <span>ACT</span></button>
+  </div>
+  <div id="panel-u" class="layer-panel fade-in fade-in-2">
+<div class="content-card"><h3>&#128260; What is Lateral Movement?</h3>
+<p>After gaining initial access, the attacker pivots to other systems to reach higher-value targets (Domain Controller, file servers, databases). This is done using <strong>legitimate admin protocols</strong> like RDP, SMB, WMI, or PsExec, making detection harder.</p></div>
+<div class="content-card"><h3>&#128293; Common Techniques</h3>
+<p><strong>RDP (T1021.001):</strong> GUI remote access, port 3389. EventID 4624 Logon_Type=10<br/>
+<strong>SMB/PsExec (T1021.002):</strong> Installs temp service PSEXESVC, EventID 7045<br/>
+<strong>WMI (T1021.003):</strong> Remote command execution, port 135, spawns wmiprvse.exe<br/>
+<strong>Pass-the-Hash:</strong> NTLM auth with stolen hash, EventID 4624 Logon_Type=3 with NTLMv2</p></div>
+<div class="alert alert-danger"><span class="alert-icon">&#128680;</span><div><strong>Critical Signal:</strong> Domain Controller accessed? Assume full domain compromise. Activate IR Plan immediately.</div></div></div>
+  <div id="panel-d" class="layer-panel fade-in fade-in-2"><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; RDP Lateral Movement (Logon_Type=10)</span>
+    <span class="spl-meta">Windows Security &middot; -24h</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">sourcetype</span>=WinEventLog:Security
+<span class="fd">EventCode</span>=<span class="nm">4624</span> <span class="fd">Logon_Type</span>=<span class="nm">10</span> <span class="kw">earliest</span>=-<span class="nm">24h</span>
+<span class="op">|</span> <span class="fn">stats</span> <span class="kw">count</span> <span class="kw">as</span> <span class="fd">rdp_logins</span>, <span class="fn">dc</span>(<span class="fd">ComputerName</span>) <span class="kw">as</span> <span class="fd">target_hosts</span>,
+        <span class="fn">values</span>(<span class="fd">ComputerName</span>) <span class="kw">as</span> <span class="fd">host_list</span> <span class="kw">by</span> <span class="fd">Account_Name</span>
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">target_hosts</span> &gt; <span class="nm">3</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">risk</span> = <span class="kw">case</span>(<span class="fd">target_hosts</span>&gt;<span class="nm">10</span>,<span class="st">"CRITICAL"</span>,<span class="fd">target_hosts</span>&gt;<span class="nm">5</span>,<span class="st">"HIGH"</span>,<span class="nm">1</span>=<span class="nm">1</span>,<span class="st">"MEDIUM"</span>)
+<span class="op">|</span> <span class="fn">sort</span> -<span class="fd">target_hosts</span></div>
+</div>
+<table class="explain-table"><tr><th>Component</th><th>Explanation</th></tr>
+<tr><td>Logon_Type=10</td><td>RemoteInteractive = RDP session. More than 3 unique hosts in 24h = suspicious</td></tr>
+<tr><td>dc(ComputerName) &gt; 3</td><td>One account connecting to 3+ machines via RDP in 24h = lateral movement pattern</td></tr>
+<tr><td>case() risk</td><td>&gt;10 hosts = possible worm/automated spread; &gt;5 = investigate</td></tr></table>
+<div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; PsExec / WMI Detection (EventID 7045)</span>
+    <span class="spl-meta">Sysmon + Security</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* (<span class="kw">sourcetype</span>=WinEventLog:Security <span class="fd">EventCode</span>=<span class="nm">7045</span>)
+    OR (<span class="kw">sourcetype</span>=XmlWinEventLog:Microsoft-Windows-Sysmon/Operational <span class="fd">EventCode</span>=<span class="nm">1</span>)
+<span class="kw">earliest</span>=-<span class="nm">1h</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">is_psexec</span> = <span class="kw">if</span>(<span class="fn">match</span>(<span class="fd">ServiceFileName</span>,<span class="st">"(?i)(psexec|PSEXESVC|paexec)"</span>),<span class="st">"YES"</span>,<span class="st">"NO"</span>)
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">is_wmi</span> = <span class="kw">if</span>(<span class="fn">match</span>(<span class="fd">CommandLine</span>,<span class="st">"(?i)(wmic|wmiprvse)"</span>),<span class="st">"YES"</span>,<span class="st">"NO"</span>)
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">is_psexec</span>=<span class="st">"YES"</span> OR <span class="fd">is_wmi</span>=<span class="st">"YES"</span>
+<span class="op">|</span> <span class="fn">stats</span> <span class="kw">count</span>, <span class="fn">values</span>(<span class="fd">ComputerName</span>) <span class="kw">as</span> <span class="fd">targets</span> <span class="kw">by</span> <span class="fd">Account_Name</span>, <span class="fd">is_psexec</span></div>
+</div></div>
+  <div id="panel-a" class="layer-panel fade-in fade-in-2"><div class="runbook-phase"><div class="phase-header ph-1">&#128269; Phase 1 — Map the Movement <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Build complete timeline of host-to-host movements</div></div><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Identify Patient Zero — which host was first compromised?</div></div><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Was the Domain Controller accessed? → Emergency escalation</div></div></div></div><div class="dt-box"><div class="dt-title">&#127795; Lateral Movement Scope</div><div class="dt-q">Was the Domain Controller (DC) accessed?</div><div class="dt-y">&#10003; Yes → CRITICAL: Assume full domain compromise. Activate IR Plan.</div><div class="dt-n">&#10007; No → Continue</div><div class="dt-q">Were 5+ unique hosts accessed within 1 hour?</div><div class="dt-y">&#10003; Yes → HIGH: Possible automated spread. Contain all affected hosts.</div><div class="dt-n">&#10007; No → MEDIUM: Investigate source and intent</div></div><div class="runbook-phase"><div class="phase-header ph-4">&#128680; Phase 2 — Containment <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Isolate ALL affected hosts from the network</div></div><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Disable the compromised account immediately</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Force-close active RDP sessions on all affected hosts</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Check for credential dumping — lsass.exe access? (Sysmon EventID 10)</div></div></div></div><div class="mitre-box"><div class="mitre-title">&#8862; MITRE ATT&CK MAPPING</div><div class="mitre-grid"><div class="mitre-item"><div class="mitre-id">T1021.001</div><div class="mitre-name">Remote Services: RDP</div></div><div class="mitre-item"><div class="mitre-id">T1021.002</div><div class="mitre-name">SMB/PsExec</div></div><div class="mitre-item"><div class="mitre-id">T1021.003</div><div class="mitre-name">WMI</div></div><div class="mitre-item"><div class="mitre-id">T1550.002</div><div class="mitre-name">Pass the Hash</div></div><div class="mitre-item"><div class="mitre-id">TA0008</div><div class="mitre-name">Tactic: Lateral Movement</div></div></div></div></div>
+  <div class="sc-nav"><a class="sc-nav-btn prev" href="02-dns-analysis.html"><span>&larr;</span><div><div class="sc-nav-label">Previous</div><div class="sc-nav-title">02. DNS Tunneling & DGA</div></div></a><a class="sc-nav-btn next" href="04-data-exfiltration.html"><div><div class="sc-nav-label">Next</div><div class="sc-nav-title">04. Data Exfiltration</div></div><span>&rarr;</span></a></div>
+</main>
+<script src="../assets/js/main.js"></script>
+</body></html>
