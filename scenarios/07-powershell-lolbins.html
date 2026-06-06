@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Scenario 07: PowerShell & LOLBins Analysis &mdash; SOC Splunk Guide</title>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+<style>
+@media print{.sidebar,.site-header,.layer-tabs,.sc-nav,.progress-bar{display:none!important}
+.main-content{margin:0;padding:1rem}.layer-panel{display:block!important}.phase-steps{display:block!important}}
+</style>
+</head><body>
+<header class="site-header">
+  <button class="btn-icon mobile-menu-btn" id="mobile-menu">&#9776;</button>
+  <div class="header-logo"><div class="logo-icon">&#128737;</div> SOC <span>Splunk</span> Guide</div>
+  <div class="header-spacer"></div>
+  <div class="header-actions">
+    <a class="btn-icon" href="../index.html" data-tip="Dashboard">&#8862;</a>
+    <button class="btn-icon" id="theme-toggle" data-tip="Toggle theme">&#9680;</button>
+    <button class="btn-icon" id="print-btn" data-tip="Print">&#9113;</button>
+  </div>
+</header>
+<div class="progress-bar"><div class="progress-fill"></div></div>
+
+<nav class="sidebar" aria-label="Site navigation">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Navigation</div>
+    <a class="nav-link" href="../index.html">&#x229E; Dashboard</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128308; Critical</div>
+    <a class="nav-link" href="01-brute-force.html"><span class="nav-num">01</span> Brute Force &amp; Spray <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="02-dns-analysis.html"><span class="nav-num">02</span> DNS Tunneling / DGA <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="03-lateral-movement.html"><span class="nav-num">03</span> Lateral Movement <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="04-data-exfiltration.html"><span class="nav-num">04</span> Data Exfiltration <span class="nav-sev sev-c">CRIT</span></a>
+    <a class="nav-link" href="05-alert-triage.html"><span class="nav-num">05</span> Alert Triage <span class="nav-sev sev-c">CRIT</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#127849; High</div>
+    <a class="nav-link" href="06-ueba.html"><span class="nav-num">06</span> UEBA / Insider <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="07-powershell-lolbins.html"><span class="nav-num">07</span> PowerShell / LOLBins <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="08-ioc-hunting.html"><span class="nav-num">08</span> IOC Hunting <span class="nav-sev sev-h">HIGH</span></a>
+    <a class="nav-link" href="09-persistence.html"><span class="nav-num">09</span> Persistence <span class="nav-sev sev-h">HIGH</span></a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">&#128993; Standard</div>
+    <a class="nav-link" href="10-incident-reporting.html"><span class="nav-num">10</span> Incident Reporting <span class="nav-sev sev-m">MED</span></a>
+  </div>
+</nav>
+<main class="main-content">
+  <div class="scenario-header fade-in">
+    <div class="sc-eyebrow">
+      <span class="sc-num-badge">SCENARIO 07 / 10</span>
+      <span class="sc-sev-badge sev-h">HIGH</span>
+    </div>
+    <div class="sc-title">PowerShell & LOLBins Analysis</div>
+    <div class="sc-subtitle">Malicious PowerShell · certutil · mshta · regsvr32</div>
+    <div class="sc-tags"><span class="sc-tag">Sysmon EventID 1</span><span class="sc-tag t-red">-EncodedCommand</span><span class="sc-tag t-red">LOLBins</span><span class="sc-tag t-orange">T1059.001</span><span class="sc-tag t-orange">T1218</span></div>
+  </div>
+  <div class="layer-tabs fade-in fade-in-1" role="tablist">
+    <button class="layer-tab" data-layer="u">&#129504; <span>UNDERSTAND</span></button>
+    <button class="layer-tab" data-layer="d">&#128269; <span>DETECT</span></button>
+    <button class="layer-tab" data-layer="a">&#128203; <span>ACT</span></button>
+  </div>
+  <div id="panel-u" class="layer-panel fade-in fade-in-2">
+<div class="content-card"><h3>&#128032; PowerShell as an Attack Vector</h3>
+<p>PowerShell is pre-installed, trusted by default, and extremely powerful. Attackers abuse it for:</p>
+<p><strong>Download cradles</strong> — fetch and execute remote code in memory (IEX + DownloadString)<br/>
+<strong>Encoded commands</strong> — -EncodedCommand base64 to bypass logging<br/>
+<strong>AMSI bypass</strong> — disable antivirus scanning of scripts<br/>
+<strong>Fileless execution</strong> — run entirely in memory, no disk artifact</p></div>
+<div class="content-card"><h3>&#127979; LOLBins — Living Off the Land</h3>
+<p>Legitimate Windows tools abused for malicious purposes:<br/>
+<code>certutil.exe</code> — download files from internet<br/>
+<code>mshta.exe</code> — execute HTA/VBScript from URL<br/>
+<code>regsvr32.exe</code> — execute DLL or remote scripts<br/>
+<code>wscript.exe</code> — run JavaScript or VBScript<br/>
+These bypass application whitelisting because they are signed Microsoft binaries.</p></div>
+<div class="alert alert-danger"><span class="alert-icon">&#128680;</span><div><strong>Parent Process is Critical:</strong> PowerShell from WINWORD.EXE = Macro attack. From svchost.exe = Very suspicious WMI execution.</div></div></div>
+  <div id="panel-d" class="layer-panel fade-in fade-in-2"><div class="spl-block">
+  <div class="spl-header">
+    <span class="spl-title">SPL &middot; Malicious PowerShell Risk Scoring</span>
+    <span class="spl-meta">Sysmon EventID 1 &middot; -1h</span>
+    <button class="copy-btn">&#8984; Copy SPL</button>
+  </div>
+  <div class="spl-body"><span class="kw">index</span>=* <span class="kw">sourcetype</span>=XmlWinEventLog:Microsoft-Windows-Sysmon/Operational
+<span class="fd">EventCode</span>=<span class="nm">1</span> (<span class="fd">Image</span>=<span class="st">"*\\powershell.exe"</span> OR <span class="fd">Image</span>=<span class="st">"*\\pwsh.exe"</span>)
+<span class="kw">earliest</span>=-<span class="nm">1h</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">enc</span>    = <span class="kw">if</span>(<span class="fn">match</span>(<span class="fd">CommandLine</span>,<span class="st">"(?i)(-enc|-EncodedCommand)"</span>),<span class="nm">30</span>,<span class="nm">0</span>)
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">dl</span>     = <span class="kw">if</span>(<span class="fn">match</span>(<span class="fd">CommandLine</span>,<span class="st">"(?i)(DownloadString|WebClient|iex)"</span>),<span class="nm">40</span>,<span class="nm">0</span>)
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">bypass</span> = <span class="kw">if</span>(<span class="fn">match</span>(<span class="fd">CommandLine</span>,<span class="st">"(?i)(-nop|-bypass|-WindowStyle Hidden)"</span>),<span class="nm">20</span>,<span class="nm">0</span>)
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">amsi</span>   = <span class="kw">if</span>(<span class="fn">match</span>(<span class="fd">CommandLine</span>,<span class="st">"(?i)(amsi|AmsiScanBuffer)"</span>),<span class="nm">50</span>,<span class="nm">0</span>)
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">risk_score</span> = <span class="fd">enc</span>+<span class="fd">dl</span>+<span class="fd">bypass</span>+<span class="fd">amsi</span>
+<span class="op">|</span> <span class="fn">where</span> <span class="fd">risk_score</span> &gt; <span class="nm">20</span>
+<span class="op">|</span> <span class="fn">eval</span> <span class="fd">verdict</span> = <span class="kw">case</span>(<span class="fd">risk_score</span>&gt;=<span class="nm">70</span>,<span class="st">"CRITICAL"</span>,<span class="fd">risk_score</span>&gt;=<span class="nm">40</span>,<span class="st">"HIGH"</span>,<span class="nm">1</span>=<span class="nm">1</span>,<span class="st">"MEDIUM"</span>)
+<span class="op">|</span> <span class="fn">sort</span> -<span class="fd">risk_score</span></div>
+</div>
+<table class="explain-table"><tr><th>Signal</th><th>Score</th><th>Why</th></tr>
+<tr><td>-EncodedCommand</td><td>+30</td><td>Obfuscating the command to evade script block logging</td></tr>
+<tr><td>DownloadString / IEX</td><td>+40</td><td>Download and execute remote code in memory — no disk artifact</td></tr>
+<tr><td>-nop / -bypass</td><td>+20</td><td>Bypassing execution policy and hiding window</td></tr>
+<tr><td>amsi / AmsiScanBuffer</td><td>+50</td><td>Attempting to disable AV scanning — highest confidence signal</td></tr></table>
+</div>
+  <div id="panel-a" class="layer-panel fade-in fade-in-2"><div class="runbook-phase"><div class="phase-header ph-1">&#128269; Phase 1 — Command Analysis <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Read full CommandLine — if encoded, Base64-decode it immediately</div></div><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Check ParentImage — WINWORD/EXCEL as parent = Macro Attack</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Did the process make network connections? (Sysmon EventID 3)</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Did it create files on disk? (Sysmon EventID 11)</div></div></div></div><div class="dt-box"><div class="dt-title">&#127795; PowerShell Threat Assessment</div><div class="dt-q">Is ParentImage a user application (Word, Excel, Outlook)?</div><div class="dt-y">&#10003; Yes → HIGH CONFIDENCE Macro Attack — Isolate immediately</div><div class="dt-n">&#10007; No → Continue</div><div class="dt-q">Does CommandLine contain download cradle (IEX + WebClient)?</div><div class="dt-y">&#10003; Yes → CRITICAL: Remote code execution — Block C2 + Isolate</div><div class="dt-n">&#10007; No → Check risk_score and investigate further</div></div><div class="runbook-phase"><div class="phase-header ph-4">&#128680; Immediate Response (TP Confirmed) <span class="ph-toggle">&#9662;</span></div><div class="phase-steps"><div class="rb-step critical"><div class="step-cb"></div><div class="step-text">Isolate host — disconnect from network</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Kill the suspicious process (do NOT reboot — preserve memory)</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Take memory dump for forensic analysis</div></div><div class="rb-step "><div class="step-cb"></div><div class="step-text">Block C2 destination IP/domain in Firewall</div></div></div></div><div class="mitre-box"><div class="mitre-title">&#8862; MITRE ATT&CK MAPPING</div><div class="mitre-grid"><div class="mitre-item"><div class="mitre-id">T1059.001</div><div class="mitre-name">PowerShell</div></div><div class="mitre-item"><div class="mitre-id">T1059.005</div><div class="mitre-name">VBScript/JScript</div></div><div class="mitre-item"><div class="mitre-id">T1218</div><div class="mitre-name">Signed Binary Proxy (LOLBins)</div></div><div class="mitre-item"><div class="mitre-id">T1027</div><div class="mitre-name">Obfuscated Files</div></div><div class="mitre-item"><div class="mitre-id">T1566.001</div><div class="mitre-name">Spearphishing Attachment</div></div></div></div></div>
+  <div class="sc-nav"><a class="sc-nav-btn prev" href="06-ueba.html"><span>&larr;</span><div><div class="sc-nav-label">Previous</div><div class="sc-nav-title">06. User Behavior Analytics</div></div></a><a class="sc-nav-btn next" href="08-ioc-hunting.html"><div><div class="sc-nav-label">Next</div><div class="sc-nav-title">08. IOC Hunting</div></div><span>&rarr;</span></a></div>
+</main>
+<script src="../assets/js/main.js"></script>
+</body></html>
